@@ -10,7 +10,7 @@ export default function Users() {
     const fetchUsers = async () => {
       try {
         const res = await api.get("/users");
-        console.log("📦 API /users trả về:", res.data);
+        console.log("API /users trả về:", res.data);
 
         const data = Array.isArray(res.data)
           ? res.data
@@ -18,7 +18,7 @@ export default function Users() {
 
         setUsers(data);
       } catch (err) {
-        console.error("❌ Lỗi khi fetch users:", err);
+        console.error("Lỗi khi fetch users:", err);
         setError("Không thể tải danh sách người dùng");
       } finally {
         setLoading(false);
