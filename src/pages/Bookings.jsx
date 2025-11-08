@@ -5,186 +5,209 @@ export default function Bookings() {
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [selectedBooking, setSelectedBooking] = useState(null);
-  const [showModal, setShowModal] = useState(false);
-  const [filter, setFilter] = useState("all"); // 🟢 bộ lọc trạng thái
+  const [selectedBooking, setSelectedBooking] = useState(null); // modal
+  const [updating, setUpdating] = useState(false);
 
   useEffect(() => {
     const fetchBookings = async () => {
       try {
-        const res = await api.get("/bookings");
-        const data = Array.isArray(res.data)
-          ? res.data
-          : res.data.bookings || [];
+        const token = localStorage.getItem("token");
+        if (!token) throw new Error("Token not found, please login again!");
+
+        const res = await api.get("/bookings", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        const data = res.data.bookings || [];
         setBookings(data);
       } catch (err) {
-        console.error("❌ Lỗi khi fetch bookings:", err);
-        setError("Không thể tải danh sách đặt phòng");
+        console.error("Lỗi khi tải danh sách bookings:", err);
+        setError("Không thể tải danh sách bookings. Kiểm tra token hoặc quyền admin.");
       } finally {
         setLoading(false);
       }
     };
+
     fetchBookings();
   }, []);
 
-  const updateBookingStatus = async (id, status) => {
+  const handleStatusChange = async (id, status) => {
+    const confirm = window.confirm(`Bạn có chắc muốn ${status} booking này?`);
+    if (!confirm) return;
+
     try {
-      await api.patch(`/bookings/${id}`, { status });
+      setUpdating(true);
+      const token = localStorage.getItem("token");
+
+      const res = await api.patch(
+        `/bookings/${id}/status`,
+        { status },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      alert(`Booking ${status}!`);
       setBookings((prev) =>
-        prev.map((b) => (b._id === id ? { ...b, status } : b))
+        prev.map((b) =>
+          b._id === id ? { ...b, status: res.data.booking.status } : b
+        )
       );
-      setSelectedBooking((prev) =>
-        prev && prev._id === id ? { ...prev, status } : prev
-      );
-      alert(`Booking đã được ${status === "approved" ? "duyệt" : "từ chối"}`);
+      setSelectedBooking(null);
     } catch (err) {
-      console.error("❌ Lỗi khi cập nhật trạng thái:", err);
-      alert("Không thể cập nhật trạng thái booking");
+      console.error("Lỗi khi cập nhật trạng thái:", err);
+      alert("Không thể cập nhật trạng thái. Vui lòng kiểm tra quyền admin hoặc token.");
+    } finally {
+      setUpdating(false);
     }
   };
 
-  const openModal = (booking) => {
-    setSelectedBooking(booking);
-    setShowModal(true);
-  };
-
-  const closeModal = () => {
-    setSelectedBooking(null);
-    setShowModal(false);
-  };
-
-  const filteredBookings =
-    filter === "all"
-      ? bookings
-      : bookings.filter((b) => (b.status || "pending") === filter);
-
-  if (loading) return <p>Đang tải dữ liệu...</p>;
-  if (error) return <p className="text-red-500">{error}</p>;
+  if (loading) return <p className="p-6 text-gray-600">Đang tải dữ liệu...</p>;
+  if (error)
+    return (
+      <div className="p-6 text-red-600 font-medium">
+        {error}
+      </div>
+    );
 
   return (
-    <>
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-2xl font-bold">Bookings</h2>
+    <div className="p-6 space-y-6">
+      <h1 className="text-2xl font-bold text-gray-700">Bookings Management</h1>
 
-        <select
-          value={filter}
-          onChange={(e) => setFilter(e.target.value)}
-          className="border rounded-md px-3 py-2 text-gray-700 shadow-sm focus:outline-none focus:ring focus:ring-blue-300"
-        >
-          <option value="all">All</option>
-          <option value="pending">Pending</option>
-          <option value="approved">Approved</option>
-          <option value="rejected">Rejected</option>
-        </select>
-      </div>
-
-      <div className="overflow-x-auto bg-white rounded-lg shadow-md">
-        <table className="min-w-full table-auto border-collapse">
-          <thead className="bg-gray-200 text-gray-700">
-            <tr>
-              <th className="px-4 py-2 border">#</th>
-              <th className="px-4 py-2 border">User</th>
-              <th className="px-4 py-2 border">Lab</th>
-              <th className="px-4 py-2 border">Date</th>
-              <th className="px-4 py-2 border">Time Slot</th>
-              <th className="px-4 py-2 border">Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredBookings.length > 0 ? (
-              filteredBookings.map((b, i) => (
+      {bookings.length === 0 ? (
+        <p className="text-gray-500">Không có dữ liệu đặt phòng.</p>
+      ) : (
+        <div className="overflow-x-auto bg-white rounded-lg shadow-md">
+          <table className="min-w-full table-auto border-collapse text-sm text-gray-700">
+            <thead className="bg-gray-100 text-gray-600 uppercase text-xs">
+              <tr>
+                <th className="px-4 py-2 border">#</th>
+                <th className="px-4 py-2 border">User</th>
+                <th className="px-4 py-2 border">Lab</th>
+                <th className="px-4 py-2 border">Date</th>
+                <th className="px-4 py-2 border">Time</th>
+                <th className="px-4 py-2 border">Status</th>
+                <th className="px-4 py-2 border text-center">Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {bookings.map((b, i) => (
                 <tr
                   key={b._id || i}
-                  className="hover:bg-gray-100 cursor-pointer"
-                  onClick={() => openModal(b)}
+                  className="hover:bg-gray-50 transition cursor-pointer text-center"
+                  onClick={() => setSelectedBooking(b)}
                 >
                   <td className="px-4 py-2 border">{i + 1}</td>
-                  <td className="px-4 py-2 border">{b.user?.name || b.userName}</td>
-                  <td className="px-4 py-2 border">{b.lab?.name || b.labName}</td>
+                  <td className="px-4 py-2 border">
+                    {b.user?.name || "N/A"}
+                    <div className="text-xs text-gray-500">{b.user?.email}</div>
+                  </td>
+                  <td className="px-4 py-2 border">{b.lab?.name || "N/A"}</td>
                   <td className="px-4 py-2 border">{b.date}</td>
-                  <td className="px-4 py-2 border">{b.timeSlot}</td>
+                  <td className="px-4 py-2 border">
+                    {b.startTime && b.endTime
+                      ? `${b.startTime} - ${b.endTime}`
+                      : "N/A"}
+                  </td>
                   <td
                     className={`px-4 py-2 border font-semibold ${
                       b.status === "approved"
                         ? "text-green-600"
                         : b.status === "rejected"
-                        ? "text-red-600"
-                        : "text-yellow-600"
+                        ? "text-red-500"
+                        : "text-yellow-500"
                     }`}
                   >
-                    {b.status || "pending"}
+                    {b.status}
+                  </td>
+                  <td className="px-4 py-2 border">
+                    <button className="text-blue-600 hover:underline text-sm">
+                      View
+                    </button>
                   </td>
                 </tr>
-              ))
-            ) : (
-              <tr>
-                <td colSpan="6" className="text-center py-4 text-gray-500">
-                  Không có booking nào phù hợp
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
 
-      {showModal && selectedBooking && (
-        <div className="fixed inset-0 bg-black bg-opacity-40 flex justify-center items-center z-50">
-          <div className="bg-white rounded-xl shadow-lg p-6 w-[420px] relative">
+      {selectedBooking && (
+        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-xl p-6 w-[420px] relative">
             <button
-              onClick={closeModal}
-              className="absolute top-3 right-3 text-gray-500 hover:text-black"
+              onClick={() => setSelectedBooking(null)}
+              className="absolute top-3 right-3 text-gray-400 hover:text-gray-600"
             >
               ✕
             </button>
-            <h3 className="text-xl font-semibold mb-4 text-gray-800">
+
+            <h2 className="text-xl font-semibold mb-4 text-gray-700">
               Booking Details
-            </h3>
-            <div className="space-y-2 text-gray-700">
-              <p><strong>User:</strong> {selectedBooking.user?.name || "N/A"}</p>
-              <p><strong>Email:</strong> {selectedBooking.user?.email || "N/A"}</p>
-              <p><strong>Lab:</strong> {selectedBooking.lab?.name || "N/A"}</p>
-              <p><strong>Date:</strong> {selectedBooking.date}</p>
-              <p><strong>Time Slot:</strong> {selectedBooking.timeSlot}</p>
-              <p><strong>Note:</strong> {selectedBooking.note || "Không có ghi chú"}</p>
+            </h2>
+
+            <div className="space-y-2 text-sm">
               <p>
-                <strong>Status:</strong>{" "}
+                <span className="font-medium text-gray-600">User:</span>{" "}
+                {selectedBooking.user?.name} ({selectedBooking.user?.email})
+              </p>
+              <p>
+                <span className="font-medium text-gray-600">Lab:</span>{" "}
+                {selectedBooking.lab?.name} - {selectedBooking.lab?.location}
+              </p>
+              <p>
+                <span className="font-medium text-gray-600">Subject Code:</span>{" "}
+                {selectedBooking.subjectCode || "N/A"}
+              </p>
+              <p>
+                <span className="font-medium text-gray-600">Date:</span>{" "}
+                {selectedBooking.date}
+              </p>
+              <p>
+                <span className="font-medium text-gray-600">Time Slot:</span>{" "}
+                {selectedBooking.startTime && selectedBooking.endTime
+                  ? `${selectedBooking.startTime} - ${selectedBooking.endTime}`
+                  : "N/A"}
+              </p>
+              <p>
+                <span className="font-medium text-gray-600">Status:</span>{" "}
                 <span
-                  className={`font-bold ${
+                  className={`font-semibold ${
                     selectedBooking.status === "approved"
                       ? "text-green-600"
                       : selectedBooking.status === "rejected"
-                      ? "text-red-600"
-                      : "text-yellow-600"
+                      ? "text-red-500"
+                      : "text-yellow-500"
                   }`}
                 >
-                  {selectedBooking.status || "pending"}
+                  {selectedBooking.status}
                 </span>
               </p>
             </div>
 
-            <div className="mt-6 flex justify-end gap-3">
-              <button
-                onClick={() =>
-                  updateBookingStatus(selectedBooking._id, "approved")
-                }
-                className="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 disabled:opacity-50"
-                disabled={selectedBooking.status === "approved"}
-              >
-                Approve
-              </button>
-              <button
-                onClick={() =>
-                  updateBookingStatus(selectedBooking._id, "rejected")
-                }
-                className="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 disabled:opacity-50"
-                disabled={selectedBooking.status === "rejected"}
-              >
-                Reject
-              </button>
-            </div>
+            {selectedBooking.status === "pending" && (
+              <div className="mt-6 flex justify-between">
+                <button
+                  disabled={updating}
+                  onClick={() =>
+                    handleStatusChange(selectedBooking._id, "approved")
+                  }
+                  className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 disabled:opacity-50"
+                >
+                  {updating ? "Đang xử lý..." : "Approve"}
+                </button>
+                <button
+                  disabled={updating}
+                  onClick={() =>
+                    handleStatusChange(selectedBooking._id, "rejected")
+                  }
+                  className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 disabled:opacity-50"
+                >
+                  Reject
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}
-    </>
+    </div>
   );
 }

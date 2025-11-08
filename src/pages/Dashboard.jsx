@@ -29,10 +29,22 @@ export default function Dashboard() {
           }),
         ]);
 
+        const usersCount =
+          Array.isArray(usersRes.data) ? usersRes.data.length :
+          usersRes.data.users?.length || usersRes.data.total || 0;
+
+        const labsCount =
+          Array.isArray(labsRes.data) ? labsRes.data.length :
+          labsRes.data.labs?.length || labsRes.data.total || 0;
+
+        const bookingsCount =
+          Array.isArray(bookingsRes.data) ? bookingsRes.data.length :
+          bookingsRes.data.bookings?.length || bookingsRes.data.total || 0;
+
         setStats({
-          users: usersRes.data?.length || 0,
-          labs: labsRes.data?.length || 0,
-          bookings: bookingsRes.data?.length || 0,
+          users: usersCount,
+          labs: labsCount,
+          bookings: bookingsCount,
         });
       } catch (err) {
         console.error("Error fetching dashboard stats:", err);
