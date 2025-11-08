@@ -17,7 +17,6 @@ export default function Dashboard() {
           return;
         }
 
-        // ✅ Gọi API song song để lấy dữ liệu
         const [usersRes, labsRes, bookingsRes] = await Promise.all([
           axios.get("https://lab-booking-be-1.onrender.com/api/v1/users", {
             headers: { Authorization: `Bearer ${token}` },
@@ -30,14 +29,13 @@ export default function Dashboard() {
           }),
         ]);
 
-        // ✅ Gán dữ liệu lấy được
         setStats({
           users: usersRes.data?.length || 0,
           labs: labsRes.data?.length || 0,
           bookings: bookingsRes.data?.length || 0,
         });
       } catch (err) {
-        console.error("❌ Error fetching dashboard stats:", err);
+        console.error("Error fetching dashboard stats:", err);
         setError("Không thể tải dữ liệu dashboard. Kiểm tra lại quyền truy cập hoặc token.");
       } finally {
         setLoading(false);
@@ -47,7 +45,6 @@ export default function Dashboard() {
     fetchStats();
   }, []);
 
-  // 🔹 Nếu đang loading
   if (loading) {
     return (
       <div className="flex justify-center items-center h-full">
@@ -56,7 +53,6 @@ export default function Dashboard() {
     );
   }
 
-  // 🔹 Nếu có lỗi
   if (error) {
     return (
       <div className="p-6">
@@ -68,7 +64,6 @@ export default function Dashboard() {
     );
   }
 
-  // 🔹 Nếu có dữ liệu
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold text-gray-700">Admin Dashboard</h1>
